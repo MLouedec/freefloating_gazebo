@@ -31,7 +31,7 @@ int main(int argc, char ** argv)
     // Model-Control class
     std::unique_ptr<ffg::ModelControlCompute> body_controller;
     ros::Publisher body_command_publisher;
-    std::string default_mode = "position";
+    std::string default_mode = "velocity";
 
     std::stringstream ss;
     ss << "Init control for " << nh.getNamespace() << ": ";

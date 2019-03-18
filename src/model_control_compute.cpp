@@ -7,6 +7,7 @@ namespace ffg
 
 void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std::vector<std::string>&_controlled_axes, std::string default_mode/* = "position"*/)
 {
+    velocity_error_ << 0,0,0,0,0,0;
 
     // init dt from rate
     dt = _dt;
@@ -29,7 +30,7 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
     //ros::NodeHandle control_node(nh, "controllers");
     //control_node.param("controllers/config/body/dynamic_reconfigure", use_dynamic_reconfig, true);
 
-    if(n)//If we cans actually control something
+    if(n)//If we can actually control something
     {
         if(default_mode == "position"){
             // position setpoint
@@ -50,16 +51,23 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
 
 void ModelControlCompute::UpdateError()
 {
+    if(setpoint_velocity_ok)
+    {
+        //Let's update the velocity_error_
+        velocity_error_ = velocity_setpoint_ - velocity_measure_;
+        pose_error_ << 0, 0, 0, 0, 0, 0;
+    }
+    else if(setpoint_velocity_ok)
+    {
+        velocity_error_ << 0, 0, 0, 0, 0, 0;
+        //Let's update the pose_error_
+        Eigen::Quaterniond pose_ang_measure_ = pose_ang_measure_inv_.inverse();
+        Eigen::Vector3d attitude_error_;
 
-    //Let's update the pose_error_
-    Eigen::Quaterniond pose_ang_measure_ = pose_ang_measure_inv_.inverse();
-    Eigen::Vector3d attitude_error_;
-
-    attitude_error_ = pose_ang_measure_.w()*pose_ang_setpoint_.vec() - pose_ang_setpoint_.w()*pose_ang_measure_.vec() + pose_ang_setpoint_.vec().cross( pose_ang_measure_.vec() );
-    pose_error_ << pose_ang_measure_inv_.toRotationMatrix() * (pose_lin_setpoint_ - pose_lin_measure_) , attitude_error_;
-
-    //Let's update the velocity_error_
-    velocity_error_ = velocity_setpoint_ - velocity_measure_;
+        attitude_error_ = pose_ang_measure_.w()*pose_ang_setpoint_.vec() - pose_ang_setpoint_.w()*pose_ang_measure_.vec()
+                + pose_ang_setpoint_.vec().cross( pose_ang_measure_.vec() );
+        pose_error_ << pose_ang_measure_inv_.toRotationMatrix() * (pose_lin_setpoint_ - pose_lin_measure_) , attitude_error_;
+    }
 
     //Let's update the s_error_
     Eigen::DiagonalMatrix<double, 6> Lambda;

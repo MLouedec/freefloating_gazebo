@@ -70,7 +70,7 @@ public:
     // parse received body measure
     void MeasureCallBack(const nav_msgs::OdometryConstPtr& _msg);
 
-    // errors are stored in Vector3
+    // errvelocity_error_ors are stored in Vector3
     Eigen::Vector6d pose_error_, velocity_error_, s_error_;
     // velocities are stored in Vector 6
     Eigen::Vector6d velocity_setpoint_, velocity_measure_, vel_prev;
