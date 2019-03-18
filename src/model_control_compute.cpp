@@ -53,11 +53,13 @@ void ModelControlCompute::UpdateError()
 {
     if(setpoint_velocity_ok)
     {
+        //std::stringstream ss2;ss2 << "Erreur en vitesse mis a jour";
         //Let's update the velocity_error_
         velocity_error_ = velocity_setpoint_ - velocity_measure_;
+        //ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), velocity_error_[0],velocity_error_[1],velocity_error_[2],velocity_error_[3],velocity_error_[4],velocity_error_[5]);
         pose_error_ << 0, 0, 0, 0, 0, 0;
     }
-    else if(setpoint_velocity_ok)
+    else if(setpoint_position_ok)
     {
         velocity_error_ << 0, 0, 0, 0, 0, 0;
         //Let's update the pose_error_
@@ -85,7 +87,8 @@ void ModelControlCompute::UpdateParam()
 void ModelControlCompute::UpdateWrench()
 {
     //Let's Calculate the regressor matrix
-
+    std::stringstream ss2;
+    ss2 << "Updating Wrench";
 
     Eigen::Matrix6d lin_dampling_regressor =  velocity_measure_.asDiagonal();
 
@@ -116,6 +119,7 @@ void ModelControlCompute::UpdateWrench()
     wrench = KD*s_error_+ K * pose_error_ + regressor*param_estimated;
 
     tf::wrenchEigenToMsg(wrench,wrench_command_);
+    ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), wrench[0],wrench[1],wrench[2],wrench[3],wrench[4],wrench[5]);
 
 
 }

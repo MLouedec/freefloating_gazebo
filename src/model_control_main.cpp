@@ -61,9 +61,13 @@ int main(int argc, char ** argv)
 
     while(ros::ok())
     {
+
         // update body and publish
         if(control_body && body_controller->Update())
+        {
             body_command_publisher.publish(allocator.wrench2Thrusters(body_controller->WrenchCommand()));
+        }
+
 
 
         // // update joints and publish
