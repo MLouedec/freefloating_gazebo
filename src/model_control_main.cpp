@@ -1,8 +1,6 @@
-model_control_main.cpp
-
 #include <freefloating_gazebo/model_control_compute.h> //This one is meant to replace the pids_body.h
-#include <freefloating_gazebo/freefloating_pids_body.h>
-#include <freefloating_gazebo/freefloating_pids_joint.h>
+//#include <freefloating_gazebo/freefloating_pids_body.h>
+//#include <freefloating_gazebo/freefloating_pids_joint.h>
 #include <freefloating_gazebo/thruster_allocator.h>
 #include <memory>
 
@@ -29,7 +27,7 @@ int main(int argc, char ** argv)
 
     ros::SubscribeOptions ops;
 
-    // -- Init body --------------------------
+    // -- Init body ---------------
     // Model-Control class
     std::unique_ptr<ffg::ModelControlCompute> body_controller;
     ros::Publisher body_command_publisher;
@@ -46,10 +44,6 @@ int main(int argc, char ** argv)
 
         body_controller = std::unique_ptr<ffg::ModelControlCompute>(new ffg::ModelControlCompute());
         body_controller->Init(nh,dt,controlled_axes,default_mode);
-        //init Controller. Since calling the object does nothing but set all values to 0
-        //std::make_unique<ffg::ModelControlCompute>(); not supported in this c++ version
-        //body_controller->Init(nh, dt, controlled_axes, default_mode); It was needed before, now we do it when we assign the pointer
-        //body_pid->Init(nh, dt, controlled_axes, default_mode);
 
         // command
         body_command_publisher =

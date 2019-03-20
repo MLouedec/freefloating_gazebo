@@ -1,5 +1,3 @@
-model_control_compute.h
-
 #ifndef MODEL_CONTROL_COMPUTE_H
 #define MODEL_CONTROL_COMPUTE_H
 
@@ -14,9 +12,9 @@ model_control_compute.h
 
 namespace Eigen
 {
-typedef Eigen::Matrix<double, 6, 6> Matrix6d;
+typedef Eigen::DiagonalMatrix<double, 6, 6> Matrix6dd;
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
-typedef Eigen::Matrix<double, 22,22> Matrix22d;
+typedef Eigen::DiagonalMatrix<double, 22,22> Matrix22dd;
 typedef Eigen::Matrix<double, 6, 22> MatrixModel22;
 typedef Eigen::Matrix<double, 22, 1> VectorModel22;
 }
@@ -61,6 +59,8 @@ public:
     void UpdateParam();
     void UpdateWrench();
 
+    void UpdateGains(const ros::NodeHandle &control_node);
+
     // get wrench command
     inline geometry_msgs::Wrench WrenchCommand() {return wrench_command_;}
 
@@ -89,8 +89,9 @@ public:
 
     // gains of the model
     double lp, lo, kp, ko;
-    Eigen::Matrix6d KD;
-    Eigen::Matrix22d KL;
+    Eigen::Matrix6dd KD;
+    Eigen::Matrix22dd KL;
+    Eigen::DiagonalMatrix<double, 6> K;
 
     // the regressor matrix
     Eigen::MatrixModel22 regressor;

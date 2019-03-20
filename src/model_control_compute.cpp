@@ -1,10 +1,3 @@
-model_control_compute.cpp
-Aujourd'hui
-12:22
-morgan louedec (“momorun29”) a importé un élément
-C++
-model_control_compute.cpp
-
 #include <freefloating_gazebo/model_control_compute.h>
 #include <freefloating_gazebo/hydro_link.h>
 
@@ -16,8 +9,6 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
 {
     velocity_error_ << 0,0,0,0,0,0;
     s_error_ << 0,0,0,0,0,0;
-    param_estimated << 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0;
-    //TODO : initializer parameters_estimated.
 
     // init dt from rate
     dt = _dt;
@@ -37,8 +28,10 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
 
     // get whether or not we use dynamic reconfigure
     //bool use_dynamic_reconfig;
-    //ros::NodeHandle control_node(nh, "controllers");
+    ros::NodeHandle control_node(nh, "controllers");
     //control_node.param("controllers/config/body/dynamic_reconfigure", use_dynamic_reconfig, true);
+
+    UpdateGains(control_node);//Get gains from parameters
 
     if(n)//If we can actually control something
     {
@@ -55,24 +48,12 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
         //TODO initialize setpoint (angular desired value in both cases);
     }
 
-    //TODO : default_mode should determine which are the dof we control
-    //TODO : how from the Init function we shall define to the rest of the program what we are going to take into account ?
-
     // initialisation of the parameters (very bad now)
     param_estimated << 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1;
 
     // initialisation of the gains
-    ko=1;
-    kp=1;
-    KD <<   1, 0, 0, 0, 0, 0,
-            0, 1, 0, 0, 0, 0,
-            0, 0, 1, 0, 0, 0,
-            0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 1, 0,
-            0, 0, 0, 0, 0, 1;
-    KL = 0.0000001*Eigen::Matrix<double, 22, 22>::Identity();
-    lo=1;
-    lp=1;
+    this->UpdateGains(nh);
+
 }
 
 bool ModelControlCompute::UpdateError()
@@ -153,8 +134,6 @@ void ModelControlCompute::UpdateWrench()
 
     //Let's update the wrench
     Eigen::Vector6d wrench;
-    Eigen::DiagonalMatrix<double, 6> K;
-    K.diagonal() << kp, kp, kp, ko, ko, ko;
     Eigen::Vector6d wrench_pid;
     Eigen::Vector6d wrench_model;
 
@@ -167,6 +146,36 @@ void ModelControlCompute::UpdateWrench()
 
 
 }
+
+
+void ModelControlCompute::UpdateGains(const ros::NodeHandle &control_node)
+{
+    control_node.param("Lamba/l/lo",lo,0.0);
+    control_node.param("Lamba/l/lp",lp,0.0);
+
+    control_node.param("K/k/ko",ko,0.0);
+    control_node.param("K/k/kp",kp,0.0);
+
+    std::vector<double> KD_diag;
+    if( !control_node.getParam("KD/diagonal",KD_diag) ){
+        ROS_ERROR("Failed to get KD from server");
+    }
+
+    std::vector<double> KL_diag;
+    if( !control_node.getParam("KL/diagonal",KL_diag) ){
+        ROS_ERROR("Failed to get KL from server");
+    }
+
+    K.diagonal() << kp, kp, kp, ko, ko, ko;
+
+    KD.diagonal() <<    KD_diag[0], KD_diag[1], KD_diag[2], KD_diag[3], KD_diag[4], KD_diag[5];
+
+    KL.diagonal() <<    KL_diag[0], KL_diag[1], KL_diag[2], KL_diag[3], KL_diag[4],KL_diag[5], KL_diag[6], KL_diag[7], KL_diag[8], KL_diag[9],KL_diag[10], KL_diag[11],
+                        KL_diag[12], KL_diag[13], KL_diag[14],KL_diag[15], KL_diag[16], KL_diag[17], KL_diag[18], KL_diag[19],KL_diag[20], KL_diag[21];
+    //= 0.0000001*Eigen::Matrix<double, 22, 22>::Identity();
+
+}
+
 
 void ModelControlCompute::PositionSPCallBack(const geometry_msgs::PoseStampedConstPtr& _msg)
 {
