@@ -1,3 +1,10 @@
+model_control_compute.cpp
+Aujourd'hui
+12:22
+morgan louedec (“momorun29”) a importé un élément
+C++
+model_control_compute.cpp
+
 #include <freefloating_gazebo/model_control_compute.h>
 #include <freefloating_gazebo/hydro_link.h>
 
@@ -8,6 +15,7 @@ namespace ffg
 void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std::vector<std::string>&_controlled_axes, std::string default_mode/* = "position"*/)
 {
     velocity_error_ << 0,0,0,0,0,0;
+    s_error_ << 0,0,0,0,0,0;
     param_estimated << 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0;
     //TODO : initializer parameters_estimated.
 
@@ -46,41 +54,71 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
         }
         //TODO initialize setpoint (angular desired value in both cases);
     }
+
+    //TODO : default_mode should determine which are the dof we control
+    //TODO : how from the Init function we shall define to the rest of the program what we are going to take into account ?
+
+    // initialisation of the parameters (very bad now)
+    param_estimated << 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1;
+
+    // initialisation of the gains
+    ko=1;
+    kp=1;
+    KD <<   1, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0,
+            0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 1;
+    KL = 0.0000001*Eigen::Matrix<double, 22, 22>::Identity();
+    lo=1;
+    lp=1;
 }
 
-void ModelControlCompute::UpdateError()
+bool ModelControlCompute::UpdateError()
 {
-    if(setpoint_velocity_ok)
+    if(state_received)
     {
-        //std::stringstream ss2;ss2 << "Erreur en vitesse mis a jour";
-        //Let's update the velocity_error_
-        velocity_error_ = velocity_setpoint_ - velocity_measure_;
-        //ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), velocity_error_[0],velocity_error_[1],velocity_error_[2],velocity_error_[3],velocity_error_[4],velocity_error_[5]);
-        pose_error_ << 0, 0, 0, 0, 0, 0;
-    }
-    else if(setpoint_position_ok)
-    {
-        velocity_error_ << 0, 0, 0, 0, 0, 0;
-        //Let's update the pose_error_
-        Eigen::Quaterniond pose_ang_measure_ = pose_ang_measure_inv_.inverse();
-        Eigen::Vector3d attitude_error_;
+        if(setpoint_velocity_ok)
+        {
+            //std::stringstream ss2;ss2 << "Erreur en vitesse mis a jour";
+            //Let's update the velocity_error_
+            velocity_error_ = velocity_setpoint_ - velocity_measure_;
+            //ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), velocity_error_[0],velocity_error_[1],velocity_error_[2],velocity_error_[3],velocity_error_[4],velocity_error_[5]);
+            pose_error_ << 0, 0, 0, 0, 0, 0;
+        }
+        else if(setpoint_position_ok)
+        {
+            velocity_error_ << 0, 0, 0, 0, 0, 0;
+            //Let's update the pose_error_
+            Eigen::Quaterniond pose_ang_measure_ = pose_ang_measure_inv_.inverse();
+            Eigen::Vector3d attitude_error_;
 
-        attitude_error_ = pose_ang_measure_.w()*pose_ang_setpoint_.vec() - pose_ang_setpoint_.w()*pose_ang_measure_.vec()
-                + pose_ang_setpoint_.vec().cross( pose_ang_measure_.vec() );
-        pose_error_ << pose_ang_measure_inv_.toRotationMatrix() * (pose_lin_setpoint_ - pose_lin_measure_) , attitude_error_;
-    }
+            attitude_error_ = pose_ang_measure_.w()*pose_ang_setpoint_.vec() - pose_ang_setpoint_.w()*pose_ang_measure_.vec()
+                    + pose_ang_setpoint_.vec().cross( pose_ang_measure_.vec() );
+            pose_error_ << pose_ang_measure_inv_.toRotationMatrix() * (pose_lin_setpoint_ - pose_lin_measure_) , attitude_error_;
+        }else
+        {
+            return false;
+        }
 
-    //Let's update the s_error_
-    Eigen::DiagonalMatrix<double, 6> Lambda;
-    Lambda.diagonal() << lp, lp, lp, lo, lo, lo;
-    s_error_ = velocity_error_ + Lambda * pose_error_;
+        //Let's update the s_error_
+        Eigen::DiagonalMatrix<double, 6> Lambda;
+        Lambda.diagonal() << lp, lp, lp, lo, lo, lo;
+        s_error_ = velocity_error_ + Lambda * pose_error_;
+        return true;
+    }
+    else
+        return false;
 
 }
 
 void ModelControlCompute::UpdateParam()
 {
     param_prev = param_estimated;
-    param_estimated = param_prev + dt.toSec()*KL.inverse()*regressor.transpose()*s_error_;
+    //double  dt = dt.toSec();
+    Eigen::Matrix<double,22,6> rt =  regressor.transpose();
+    param_estimated = param_prev + dt.toSec()*KL*regressor.transpose()*s_error_;//TODO inverser KL
 }
 
 void ModelControlCompute::UpdateWrench()
@@ -88,14 +126,16 @@ void ModelControlCompute::UpdateWrench()
     //Let's Calculate the regressor matrix
     std::stringstream ss2;
     ss2 << "Updating Wrench";
-
-    Eigen::Matrix6d lin_dampling_regressor =  velocity_measure_.asDiagonal();
-
-    Eigen::Matrix6d quad_dampling_regressor = velocity_measure_.array().square().matrix().asDiagonal();
-
     Eigen::Vector6d v = velocity_measure_;
+
+    Eigen::Matrix6d lin_dampling_regressor =  v.asDiagonal();
+
+    Eigen::Matrix6d quad_dampling_regressor = v.array().square().matrix().asDiagonal();
+
+
     Eigen::Vector6d acc = (velocity_measure_ - vel_prev)/dt.toSec();
     vel_prev = velocity_measure_;
+    v = velocity_measure_;
     Eigen::Matrix6d  added_effect_regressor;
     added_effect_regressor << acc(0), v(1)*v(5), -v(2)*v(4), 0, 0, 0,
             -v(0)*v(5), acc(1), v(2)*v(3), 0, 0, 0,
@@ -115,6 +155,11 @@ void ModelControlCompute::UpdateWrench()
     Eigen::Vector6d wrench;
     Eigen::DiagonalMatrix<double, 6> K;
     K.diagonal() << kp, kp, kp, ko, ko, ko;
+    Eigen::Vector6d wrench_pid;
+    Eigen::Vector6d wrench_model;
+
+    wrench_pid =  KD*s_error_+ K * pose_error_;
+    wrench_model = regressor*param_estimated;
     wrench = KD*s_error_+ K * pose_error_ + regressor*param_estimated;
 
     tf::wrenchEigenToMsg(wrench,wrench_command_);
@@ -147,7 +192,6 @@ void ModelControlCompute::MeasureCallBack(const nav_msgs::OdometryConstPtr &_msg
     pose_ang_measure_inv_ = Eigen::Quaterniond(_msg->pose.pose.orientation.w, _msg->pose.pose.orientation.x, _msg->pose.pose.orientation.y, _msg->pose.pose.orientation.z).inverse();
 
     // change velocities from world to body frame
-
     Eigen::Vector3d velocity_lin_measure_ = pose_ang_measure_inv_.toRotationMatrix()*Eigen::Vector3d(_msg->twist.twist.linear.x, _msg->twist.twist.linear.y, _msg->twist.twist.linear.z);
     Eigen::Vector3d velocity_ang_measure_ = pose_ang_measure_inv_.toRotationMatrix()*Eigen::Vector3d(_msg->twist.twist.angular.x, _msg->twist.twist.angular.y, _msg->twist.twist.angular.z);
     velocity_measure_ << velocity_lin_measure_, velocity_ang_measure_;// TODO be sure it can be done

@@ -1,3 +1,5 @@
+model_control_compute.h
+
 #ifndef MODEL_CONTROL_COMPUTE_H
 #define MODEL_CONTROL_COMPUTE_H
 
@@ -46,12 +48,16 @@ public:
               std::string default_mode = "position");
 
     bool Update(){
-        UpdateError();
-        UpdateParam();
-        UpdateWrench();
+        if(UpdateError())
+        {
+            UpdateParam();
+            UpdateWrench();
+            return true;
+        }else
+            return false;
     };
 
-    void UpdateError();
+    bool UpdateError();
     void UpdateParam();
     void UpdateWrench();
 
@@ -96,9 +102,9 @@ public:
 
 private:
 
-	ros::Subscriber position_sp_subscriber, velocity_sp_subscriber,
+    ros::Subscriber position_sp_subscriber, velocity_sp_subscriber,
         wrench_sp_subscriber, state_subscriber;
-        
+
     // wrench command
     geometry_msgs::Wrench wrench_command_;
 

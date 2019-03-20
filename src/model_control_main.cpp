@@ -1,3 +1,5 @@
+model_control_main.cpp
+
 #include <freefloating_gazebo/model_control_compute.h> //This one is meant to replace the pids_body.h
 #include <freefloating_gazebo/freefloating_pids_body.h>
 #include <freefloating_gazebo/freefloating_pids_joint.h>
