@@ -8,6 +8,8 @@ namespace ffg
 void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std::vector<std::string>&_controlled_axes, std::string default_mode/* = "position"*/)
 {
     velocity_error_ << 0,0,0,0,0,0;
+    param_estimated << 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0;
+    //TODO : initializer parameters_estimated.
 
     // init dt from rate
     dt = _dt;
@@ -44,9 +46,6 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
         }
         //TODO initialize setpoint (angular desired value in both cases);
     }
-
-    //TODO : default_mode should determine which are the dof we control
-    //TODO : how from the Init function we shall define to the rest of the program what we are going to take into account ?
 }
 
 void ModelControlCompute::UpdateError()

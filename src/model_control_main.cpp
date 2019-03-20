@@ -59,6 +59,8 @@ int main(int argc, char ** argv)
 
     ROS_INFO("%s", ss.str().c_str());
 
+    ROS_INFO("%d",control_body);
+
     while(ros::ok())
     {
 
@@ -67,12 +69,6 @@ int main(int argc, char ** argv)
         {
             body_command_publisher.publish(allocator.wrench2Thrusters(body_controller->WrenchCommand()));
         }
-
-
-
-        // // update joints and publish
-        //if(control_joints && joint_pid->UpdatePID())
-        //joint_pid->publish();
 
         ros::spinOnce();
         loop.sleep();
