@@ -59,7 +59,7 @@ public:
     void UpdateParam();
     void UpdateWrench();
 
-    void UpdateGains(const ros::NodeHandle &control_node);
+    void GetGains(const ros::NodeHandle &control_node);
 
     // get wrench command
     inline geometry_msgs::Wrench WrenchCommand() {return wrench_command_;}

@@ -103,8 +103,8 @@ add_executable(model_control src/model_control_main.cpp
         src/model_control_compute.cpp include/freefloating_gazebo/model_control_compute.h)
 target_link_libraries(model_control ${catkin_LIBRARIES} ${PROJECT_NAME})
 add_dependencies(model_control ${${PROJECT_NAME}_EXPORTED_TARGETS})
-add_dependencies(model_control freefloating_gazebo_gencpp)	
-	
+add_dependencies(model_control freefloating_gazebo_gencpp)
+
 
 
 
@@ -127,18 +127,18 @@ install(TARGETS freefloating_gazebo_fluid
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-        
+
 install(DIRECTORY world
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-        
-        
+
+
 # test Butterworth filter
 add_executable(butter test/testButter.cpp)
 target_link_libraries(butter ${catkin_LIBRARIES})
 
 # test thruster mapper
 add_executable(sdf_parse test/sdf_parse.cpp)
-target_link_libraries(sdf_parse ${catkin_LIBRARIES} ${catkin_LIBRARIES} ${PROJECT_NAME})  
+target_link_libraries(sdf_parse ${catkin_LIBRARIES} ${catkin_LIBRARIES} ${PROJECT_NAME})
 
 endif()
 

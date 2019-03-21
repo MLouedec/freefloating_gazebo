@@ -39,7 +39,8 @@ int main(int argc, char ** argv)
     {
         if(priv.hasParam("body_control"))
             priv.getParam("body_control", default_mode);
-
+        //TODO: controlled_axes relies upon finding PID parameters, so when we changed the command law, it stopped working properly
+        //That's why n==0 in Init Function
         const auto controlled_axes = allocator.initControl(nh, 0.07);//Est-ce aue ça change qqch dans notre loi de commande ?
 
         body_controller = std::unique_ptr<ffg::ModelControlCompute>(new ffg::ModelControlCompute());

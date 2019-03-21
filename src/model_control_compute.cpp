@@ -26,14 +26,8 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
 
     //const std::vector<std::string> axes3D{"x", "y", "z", "roll", "pitch", "yaw"};
 
-    // get whether or not we use dynamic reconfigure
-    //bool use_dynamic_reconfig;
-    ros::NodeHandle control_node(nh, "controllers");
-    //control_node.param("controllers/config/body/dynamic_reconfigure", use_dynamic_reconfig, true);
 
-    UpdateGains(control_node);//Get gains from parameters
-
-    if(n)//If we can actually control something
+    if(true/*n*/)//If we can actually control something --> That's what n meant, we need to replace it;
     {
         if(default_mode == "position"){
             // position setpoint
@@ -50,9 +44,14 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
 
     // initialisation of the parameters (very bad now)
     param_estimated << 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1;
+    // get whether or not we use dynamic reconfigure
+    //TODO: Learn how to use it (Maybe change GetGains function)
+    ros::NodeHandle control_node(nh, "controllers");
+    bool use_dynamic_reconfig;
+    control_node.param("config/body/dynamic_reconfigure", use_dynamic_reconfig, true);
 
     // initialisation of the gains
-    this->UpdateGains(nh);
+    this->GetGains(control_node);
 
 }
 
@@ -96,17 +95,21 @@ bool ModelControlCompute::UpdateError()
 
 void ModelControlCompute::UpdateParam()
 {
+    std::stringstream ss2;
+    ss2 << "Parameters: ";
     param_prev = param_estimated;
-    //double  dt = dt.toSec();
     Eigen::Matrix<double,22,6> rt =  regressor.transpose();
-    param_estimated = param_prev + dt.toSec()*KL*regressor.transpose()*s_error_;//TODO inverser KL
+    param_estimated = param_prev + dt.toSec()*KL.inverse()*regressor.transpose()*s_error_;//TODO inverser KL
+    std::cout << "Parameters: \n" << param_estimated << std::endl;
+//    std::cout << "Parameters" << param_estimated(0)param_estimated(1),param_estimated(2),param_estimated(3),param_estimated(4),param_estimated(5),
+//                                                                 param_estimated(6),param_estimated(7),param_estimated(8),param_estimated(9),param_estimated(10),param_estimated(11),
+//                                                                 param_estimated(12),param_estimated(13),param_estimated(14),param_estimated(15),param_estimated(16),param_estimated(17),
+//                                                                 param_estimated(18),param_estimated(19),param_estimated(20),param_estimated(21));
 }
 
 void ModelControlCompute::UpdateWrench()
 {
     //Let's Calculate the regressor matrix
-    std::stringstream ss2;
-    ss2 << "Updating Wrench";
     Eigen::Vector6d v = velocity_measure_;
 
     Eigen::Matrix6d lin_dampling_regressor =  v.asDiagonal();
@@ -142,13 +145,15 @@ void ModelControlCompute::UpdateWrench()
     wrench = KD*s_error_+ K * pose_error_ + regressor*param_estimated;
 
     tf::wrenchEigenToMsg(wrench,wrench_command_);
-    ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), wrench[0],wrench[1],wrench[2],wrench[3],wrench[4],wrench[5]);
+    //std::stringstream ss2;
+    //ss2 << "Updating Wrench";
+    //ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), wrench[0],wrench[1],wrench[2],wrench[3],wrench[4],wrench[5]);
 
 
 }
 
 
-void ModelControlCompute::UpdateGains(const ros::NodeHandle &control_node)
+void ModelControlCompute::GetGains(const ros::NodeHandle &control_node)
 {
     control_node.param("Lamba/l/lo",lo,0.0);
     control_node.param("Lamba/l/lp",lp,0.0);
@@ -156,24 +161,33 @@ void ModelControlCompute::UpdateGains(const ros::NodeHandle &control_node)
     control_node.param("K/k/ko",ko,0.0);
     control_node.param("K/k/kp",kp,0.0);
 
-    std::vector<double> KD_diag;
-    if( !control_node.getParam("KD/diagonal",KD_diag) ){
-        ROS_ERROR("Failed to get KD from server");
-    }
+    double KD_d1,KD_d2;
+    control_node.param("KD/diagonal/d1",KD_d1,0.0);
+    control_node.param("KD/diagonal/d2",KD_d2,0.0);
 
+    int n_blocks;
+    control_node.param("KL/blocks",n_blocks,6);
     std::vector<double> KL_diag;
-    if( !control_node.getParam("KL/diagonal",KL_diag) ){
-        ROS_ERROR("Failed to get KL from server");
+    for(int i = 1; i <= n_blocks; i ++)
+    {
+        double k;
+        control_node.param("KL/diagonal/b"+std::to_string(i), k, 0.0);
+        KL_diag.push_back(k);
+
     }
 
     K.diagonal() << kp, kp, kp, ko, ko, ko;
 
-    KD.diagonal() <<    KD_diag[0], KD_diag[1], KD_diag[2], KD_diag[3], KD_diag[4], KD_diag[5];
-
-    KL.diagonal() <<    KL_diag[0], KL_diag[1], KL_diag[2], KL_diag[3], KL_diag[4],KL_diag[5], KL_diag[6], KL_diag[7], KL_diag[8], KL_diag[9],KL_diag[10], KL_diag[11],
-                        KL_diag[12], KL_diag[13], KL_diag[14],KL_diag[15], KL_diag[16], KL_diag[17], KL_diag[18], KL_diag[19],KL_diag[20], KL_diag[21];
-    //= 0.0000001*Eigen::Matrix<double, 22, 22>::Identity();
-
+    KD.diagonal() <<    KD_d1, KD_d1, KD_d1,
+                        KD_d2, KD_d2, KD_d2;
+    //TODO : vérifier si les 4 premiers auront tous un gain different
+    KL.diagonal() <<    KL_diag[0], KL_diag[1], KL_diag[2], KL_diag[3],
+                        KL_diag[n_blocks-6], KL_diag[n_blocks-6], KL_diag[n_blocks-6],
+                        KL_diag[n_blocks-5], KL_diag[n_blocks-5], KL_diag[n_blocks-5],
+                        KL_diag[n_blocks-4], KL_diag[n_blocks-4], KL_diag[n_blocks-4],
+                        KL_diag[n_blocks-3], KL_diag[n_blocks-3], KL_diag[n_blocks-3],
+                        KL_diag[n_blocks-2], KL_diag[n_blocks-2], KL_diag[n_blocks-2],
+                        KL_diag[n_blocks-1], KL_diag[n_blocks-1], KL_diag[n_blocks-1];
 }
 
 
