@@ -14,9 +14,9 @@ namespace Eigen
 {
 typedef Eigen::DiagonalMatrix<double, 6, 6> Matrix6dd;
 typedef Eigen::Matrix<double, 6, 1> Vector6d;
-typedef Eigen::DiagonalMatrix<double, 22,22> Matrix22dd;
-typedef Eigen::Matrix<double, 6, 22> MatrixModel22;
-typedef Eigen::Matrix<double, 22, 1> VectorModel22;
+typedef Eigen::DiagonalMatrix<double, 20,20> Matrix20dd;
+typedef Eigen::Matrix<double, 6, 20> MatrixModel20;
+typedef Eigen::Matrix<double, 20, 1> VectorModel20;
 }
 
 namespace ffg
@@ -78,7 +78,7 @@ public:
         KL.diagonal() <<    diag.at(0), diag.at(0), diag.at(0), diag.at(0), diag.at(0), diag.at(0),
                             diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1),
                             diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2),
-                            diag.at(3), diag.at(3), diag.at(3), diag.at(3);
+                            diag.at(3), diag.at(3);
     }
 
     // get wrench command
@@ -105,16 +105,16 @@ public:
     Eigen::Quaterniond pose_ang_setpoint_, pose_ang_measure_inv_;
 
     // parameters are stored in VectorXd
-    Eigen::VectorModel22 param_estimated, param_prev;
+    Eigen::VectorModel20 param_estimated, param_prev;
 
     // gains of the model
     double lp, lo, kp, ko;
     Eigen::Matrix6dd KD;
-    Eigen::Matrix22dd KL;
+    Eigen::Matrix20dd KL;
     Eigen::DiagonalMatrix<double, 6> K;
 
     // the regressor matrix
-    Eigen::MatrixModel22 regressor;
+    Eigen::MatrixModel20 regressor;
 
     //
     bool state_received = false, setpoint_position_ok = false, setpoint_velocity_ok = false;

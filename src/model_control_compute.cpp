@@ -43,7 +43,7 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
     }
 
     // initialisation of the parameters (very bad now)
-    param_estimated << 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1;
+    param_estimated << 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;
     // get whether or not we use dynamic reconfigure
     //TODO: Learn how to use it (Maybe change GetGains function)
     ros::NodeHandle control_node(nh, "controllers");
@@ -98,7 +98,7 @@ void ModelControlCompute::UpdateParam()
     std::stringstream ss2;
     ss2 << "Parameters: ";
     param_prev = param_estimated;
-    Eigen::Matrix<double,22,6> rt =  regressor.transpose();
+    Eigen::Matrix<double,20,6> rt =  regressor.transpose();
     param_estimated = param_prev + dt.toSec()*KL*regressor.transpose()*s_error_;//TODO inverser KL
     std::cout << "Parameters: \n" << param_estimated << std::endl;
 //    std::cout << "Parameters" << param_estimated(0)param_estimated(1),param_estimated(2),param_estimated(3),param_estimated(4),param_estimated(5),
@@ -128,10 +128,12 @@ void ModelControlCompute::UpdateWrench()
             -v(0)*v(2), 0, v(0)*v(2), -v(3)*v(5), acc(4), v(3)*v(5),
             v(0)*v(1), -v(0)*v(1), 0, v(3)*v(4), -v(3)*v(4), acc(5);
 
-    Eigen::Matrix<double, 6,4> grav_regressor;
+    Eigen::Matrix<double, 6,2> grav_regressor;
     Eigen::Vector3d e3(0.0 ,0.0 ,1.0);
-    grav_regressor << pose_ang_measure_inv_.toRotationMatrix()*e3, Eigen::MatrixXd::Zero(3,3),
-            Eigen::MatrixXd::Zero(3,1), skew(pose_ang_measure_inv_.toRotationMatrix()*e3) ;
+    Eigen::Matrix<double,3,1> S;
+    S = skew(pose_ang_measure_inv_.toRotationMatrix()*e3).col(2);
+    grav_regressor << pose_ang_measure_inv_.toRotationMatrix()*e3, Eigen::MatrixXd::Zero(3,1),
+            Eigen::MatrixXd::Zero(3,1), S ;
 
     regressor << lin_dampling_regressor, quad_dampling_regressor, added_effect_regressor, grav_regressor;
 
