@@ -111,12 +111,12 @@ public:
         kp = config.kp;
         ko = config.ko;
         SetGainsK();
-        SetGainsKD(config.d1,config.d2);
+        SetGainsKD(config.kd1,config.kd2);
         std::vector<double> diag;
-        diag.push_back(config.b1);
-        diag.push_back(config.b2);
-        diag.push_back(config.b3);
-        diag.push_back(config.b4);
+        diag.push_back(config.kl1);
+        diag.push_back(config.kl2);
+        diag.push_back(config.kl3);
+        diag.push_back(config.kl4);
         SetGainsKL(diag);
     }
 
