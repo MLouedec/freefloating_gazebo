@@ -8,7 +8,7 @@ namespace ffg
 void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std::vector<std::string>&_controlled_axes, std::string default_mode/* = "position"*/)
 {
     velocity_error_ << 0,0,0,0,0,0;
-    s_error_ << 0,0,0,0,0,0;
+    s_error_        << 0,0,0,0,0,0;
 
     // init dt from rate
     dt = _dt;
@@ -155,18 +155,21 @@ void ModelControlCompute::UpdateWrench()
 
 void ModelControlCompute::GetGains(const ros::NodeHandle &control_node)
 {
+    //Updates directly the variables
     control_node.param("Lamba/l/lo",lo,0.0);
     control_node.param("Lamba/l/lp",lp,0.0);
+    //lo et lp are used to create the Lambda matrix just before use
 
     control_node.param("K/k/ko",ko,0.0);
     control_node.param("K/k/kp",kp,0.0);
+    //We have to call SetGainsK to update them
 
     double KD_d1,KD_d2;
     control_node.param("KD/diagonal/d1",KD_d1,0.0);
     control_node.param("KD/diagonal/d2",KD_d2,0.0);
 
     int n_blocks;
-    control_node.param("KL/blocks",n_blocks,6);
+    control_node.param("KL/blocks",n_blocks,4);
     std::vector<double> KL_diag;
     for(int i = 1; i <= n_blocks; i ++)
     {
@@ -176,18 +179,9 @@ void ModelControlCompute::GetGains(const ros::NodeHandle &control_node)
 
     }
 
-    K.diagonal() << kp, kp, kp, ko, ko, ko;
-
-    KD.diagonal() <<    KD_d1, KD_d1, KD_d1,
-                        KD_d2, KD_d2, KD_d2;
-    //TODO : vérifier si les 4 premiers auront tous un gain different
-    KL.diagonal() <<    KL_diag[0], KL_diag[1], KL_diag[2], KL_diag[3],
-                        KL_diag[n_blocks-6], KL_diag[n_blocks-6], KL_diag[n_blocks-6],
-                        KL_diag[n_blocks-5], KL_diag[n_blocks-5], KL_diag[n_blocks-5],
-                        KL_diag[n_blocks-4], KL_diag[n_blocks-4], KL_diag[n_blocks-4],
-                        KL_diag[n_blocks-3], KL_diag[n_blocks-3], KL_diag[n_blocks-3],
-                        KL_diag[n_blocks-2], KL_diag[n_blocks-2], KL_diag[n_blocks-2],
-                        KL_diag[n_blocks-1], KL_diag[n_blocks-1], KL_diag[n_blocks-1];
+    SetGainsK();
+    SetGainsKD(KD_d1,KD_d2);
+    SetGainsKL(KL_diag);
 }
 
 

@@ -61,6 +61,26 @@ public:
 
     void GetGains(const ros::NodeHandle &control_node);
 
+    void SetGainsK()
+    {
+        K.diagonal() << kp, kp, kp, ko, ko, ko;
+    }
+
+    void SetGainsKD(double d1, double d2)
+    {
+        KD.diagonal() <<    d1, d1, d1,
+                            d2, d2, d2;
+    }
+
+    void SetGainsKL(std::vector<double> &diag)
+    {
+
+        KL.diagonal() <<    diag.at(0), diag.at(0), diag.at(0), diag.at(0), diag.at(0), diag.at(0),
+                            diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1),
+                            diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2),
+                            diag.at(3), diag.at(3), diag.at(3), diag.at(3);
+    }
+
     // get wrench command
     inline geometry_msgs::Wrench WrenchCommand() {return wrench_command_;}
 
