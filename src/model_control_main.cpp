@@ -3,9 +3,20 @@
 //#include <freefloating_gazebo/freefloating_pids_joint.h>
 #include <freefloating_gazebo/thruster_allocator.h>
 #include <memory>
+#include <dynamic_reconfigure/server.h>
+#include <freefloating_gazebo/BrovConfig.h>
 
 using std::cout;
 using std::endl;
+
+free_floating_gazebo::BrovConfig cur_config;
+bool reconfig_updated = false;
+
+void Dyn_rqt_callback(free_floating_gazebo::BrovConfig &config, uint32_t level)
+{
+    cur_config = config;
+    reconfig_updated = true;
+}
 
 int main(int argc, char ** argv)
 {
@@ -16,6 +27,7 @@ int main(int argc, char ** argv)
     ros::NodeHandle priv("~");
 
     ffg::ThrusterAllocator allocator(nh);
+
 
     // wait for Gazebo running
     ros::service::waitForService("/gazebo/unpause_physics");
@@ -33,6 +45,11 @@ int main(int argc, char ** argv)
     ros::Publisher body_command_publisher;
     std::string default_mode = "velocity";
 
+    dynamic_reconfigure::Server<free_floating_gazebo::BrovConfig> server;
+    dynamic_reconfigure::Server<free_floating_gazebo::BrovConfig>::CallbackType f;
+    f = boost::bind(&Dyn_rqt_callback, _1, _2);
+    server.setCallback(f);
+
     std::stringstream ss;
     ss << "Init control for " << nh.getNamespace() << ": ";
     if(control_body)
@@ -40,7 +57,7 @@ int main(int argc, char ** argv)
         if(priv.hasParam("body_control"))
             priv.getParam("body_control", default_mode);
         //TODO: controlled_axes relies upon finding PID parameters, so when we changed the command law, it stopped working properly
-        //That's why n==0 in Init Function
+        //That's whModelControlComputey n==0 in Init Function
         const auto controlled_axes = allocator.initControl(nh, 0.07);//Est-ce aue ça change qqch dans notre loi de commande ?
 
         body_controller = std::unique_ptr<ffg::ModelControlCompute>(new ffg::ModelControlCompute());
@@ -62,7 +79,7 @@ int main(int argc, char ** argv)
     {
 
         // update body and publish
-        if(control_body && body_controller->Update())
+        if(control_body && body_controller->Update(cur_config, reconfig_updated))
         {
             body_command_publisher.publish(allocator.wrench2Thrusters(body_controller->WrenchCommand()));
         }

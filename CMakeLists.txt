@@ -20,6 +20,7 @@ if(gazebo_FOUND)
     message_generation
     eigen_conversions
     dynamic_reconfigure
+    rospy
     )
 else()
 find_package(catkin REQUIRED COMPONENTS
@@ -35,6 +36,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   eigen_conversions
   dynamic_reconfigure
+  rospy
 )
 endif()
 
@@ -48,6 +50,10 @@ if(NOT EIGEN3_FOUND)
 else()
   set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 endif()
+
+generate_dynamic_reconfigure_options(
+  cfg/Brov.cfg
+)
 
 
 add_service_files(
@@ -103,9 +109,11 @@ add_dependencies(pid_control freefloating_gazebo_gencpp)
 
 # node to perform PID control for body (thrusters)
 add_executable(model_control src/model_control_main.cpp
-        src/model_control_compute.cpp include/freefloating_gazebo/model_control_compute.h)
+        src/model_control_compute.cpp include/freefloating_gazebo/model_control_compute.h
+        include/freefloating_gazebo/dyn_reconfig_parser.h)
 target_link_libraries(model_control ${catkin_LIBRARIES} ${PROJECT_NAME})
 add_dependencies(model_control ${${PROJECT_NAME}_EXPORTED_TARGETS})
+add_dependencies(model_control ${PROJECT_NAME}_gencfg)
 add_dependencies(model_control freefloating_gazebo_gencpp)
 
 

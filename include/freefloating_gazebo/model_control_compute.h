@@ -10,6 +10,8 @@
 #include <geometry_msgs/WrenchStamped.h>
 #include <eigen_conversions/eigen_msg.h>
 
+#include <freefloating_gazebo/BrovConfig.h>
+
 namespace Eigen
 {
 typedef Eigen::DiagonalMatrix<double, 6, 6> Matrix6dd;
@@ -45,7 +47,13 @@ public:
               const std::vector<std::string>&_controlled_axes,
               std::string default_mode = "position");
 
-    bool Update(){
+    bool Update(free_floating_gazebo::BrovConfig &config, bool reconfig_update){
+        if(reconfig_update)
+        {
+            Dyn_update(config);
+            reconfig_update = false;
+        }
+
         if(UpdateError())
         {
             UpdateParam();
@@ -69,16 +77,16 @@ public:
     void SetGainsKD(double d1, double d2)
     {
         KD.diagonal() <<    d1, d1, d1,
-                            d2, d2, d2;
+                d2, d2, d2;
     }
 
     void SetGainsKL(std::vector<double> &diag)
     {
 
         KL.diagonal() <<    diag.at(0), diag.at(0), diag.at(0), diag.at(0), diag.at(0), diag.at(0),
-                            diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1),
-                            diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2),
-                            diag.at(3), diag.at(3);
+                diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1), diag.at(1),
+                diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2), diag.at(2),
+                diag.at(3), diag.at(3);
     }
 
     // get wrench command
@@ -95,6 +103,22 @@ public:
     }
     // parse received body measure
     void MeasureCallBack(const nav_msgs::OdometryConstPtr& _msg);
+
+    void Dyn_update(free_floating_gazebo::BrovConfig &config)
+    {
+        lo = config.lo;
+        lp = config.lp;
+        kp = config.kp;
+        ko = config.ko;
+        SetGainsK();
+        SetGainsKD(config.d1,config.d2);
+        std::vector<double> diag;
+        diag.push_back(config.b1);
+        diag.push_back(config.b2);
+        diag.push_back(config.b3);
+        diag.push_back(config.b4);
+        SetGainsKL(diag);
+    }
 
     // errvelocity_error_ors are stored in Vector3
     Eigen::Vector6d pose_error_, velocity_error_, s_error_;
@@ -124,7 +148,7 @@ public:
 private:
 
     ros::Subscriber position_sp_subscriber, velocity_sp_subscriber,
-        wrench_sp_subscriber, state_subscriber;
+    wrench_sp_subscriber, state_subscriber;
 
     // wrench command
     geometry_msgs::Wrench wrench_command_;
