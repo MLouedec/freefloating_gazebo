@@ -19,6 +19,7 @@ if(gazebo_FOUND)
     nav_msgs
     message_generation
     eigen_conversions
+    dynamic_reconfigure
     )
 else()
 find_package(catkin REQUIRED COMPONENTS
@@ -33,6 +34,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   message_generation
   eigen_conversions
+  dynamic_reconfigure
 )
 endif()
 
@@ -72,6 +74,7 @@ catkin_package(
     rostime
     nav_msgs
     message_runtime
+    dynamic_reconfigure
 )
 
 include_directories(include ${Boost_INCLUDE_DIR}

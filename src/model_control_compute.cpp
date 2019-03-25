@@ -99,7 +99,7 @@ void ModelControlCompute::UpdateParam()
     ss2 << "Parameters: ";
     param_prev = param_estimated;
     Eigen::Matrix<double,22,6> rt =  regressor.transpose();
-    param_estimated = param_prev + dt.toSec()*KL.inverse()*regressor.transpose()*s_error_;//TODO inverser KL
+    param_estimated = param_prev + dt.toSec()*KL*regressor.transpose()*s_error_;//TODO inverser KL
     std::cout << "Parameters: \n" << param_estimated << std::endl;
 //    std::cout << "Parameters" << param_estimated(0)param_estimated(1),param_estimated(2),param_estimated(3),param_estimated(4),param_estimated(5),
 //                                                                 param_estimated(6),param_estimated(7),param_estimated(8),param_estimated(9),param_estimated(10),param_estimated(11),
