@@ -109,8 +109,7 @@ add_dependencies(pid_control freefloating_gazebo_gencpp)
 
 # node to perform PID control for body (thrusters)
 add_executable(model_control src/model_control_main.cpp
-        src/model_control_compute.cpp include/freefloating_gazebo/model_control_compute.h
-        include/freefloating_gazebo/dyn_reconfig_parser.h)
+        src/model_control_compute.cpp include/freefloating_gazebo/model_control_compute.h)
 target_link_libraries(model_control ${catkin_LIBRARIES} ${PROJECT_NAME})
 add_dependencies(model_control ${${PROJECT_NAME}_EXPORTED_TARGETS})
 add_dependencies(model_control ${PROJECT_NAME}_gencfg)
