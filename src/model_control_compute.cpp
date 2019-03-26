@@ -5,7 +5,7 @@ namespace ffg
 {
 
 
-void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std::vector<std::string>&_controlled_axes, std::string default_mode/* = "position"*/)
+void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const ffg::HydroLink base_link, std::string default_mode/* = "position"*/)
 {
     velocity_error_ << 0,0,0,0,0,0;
     s_error_        << 0,0,0,0,0,0;
@@ -20,13 +20,6 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
     state_subscriber =
             nh.subscribe("state", 1, &ModelControlCompute::MeasureCallBack, this);
 
-    // deal with controlled axes
-    const size_t n = _controlled_axes.size();
-    //axes.resize(n);
-
-    //const std::vector<std::string> axes3D{"x", "y", "z", "roll", "pitch", "yaw"};
-
-
     if(true/*n*/)//If we can actually control something --> That's what n meant, we need to replace it;
     {
         if(default_mode == "position"){
@@ -38,20 +31,62 @@ void ModelControlCompute::Init(ros::NodeHandle &nh, ros::Duration&_dt, const std
             // velocity setpoint
             velocity_sp_subscriber =
                     nh.subscribe("body_velocity_setpoint", 1, &ModelControlCompute::VelocitySPCallBack, this);
+        }else if (default_mode == "depth"){
+            //TODO: implement the rest
+            position_sp_subscriber =
+                    nh.subscribe("body_position_setpoint", 1, &ModelControlCompute::PositionSPCallBack, this);
+            velocity_sp_subscriber =
+                    nh.subscribe("body_velocity_setpoint", 1, &ModelControlCompute::VelocitySPCallBack, this);
+
         }
-        //TODO initialize setpoint (angular desired value in both cases);
+
     }
 
-    // initialisation of the parameters (very bad now)
-    param_estimated << 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1;
-    // get whether or not we use dynamic reconfigure
-    //TODO: Learn how to use it (Maybe change GetGains function)
+    //Init robot parameters from Model Information
+    this->InitParam(base_link);
+
     ros::NodeHandle control_node(nh, "controllers");
     bool use_dynamic_reconfig;
     control_node.param("config/body/dynamic_reconfigure", use_dynamic_reconfig, true);
 
-    // initialisation of the gains
+    // initialisation of the gains from the yaml file
     this->GetGains(control_node);
+
+}
+
+
+void ModelControlCompute::InitParam(ffg::HydroLink base_link)
+{
+    param_estimated << 0,0,0,0,0,0,0,0,0,0,
+                       0,0,0,0,0,0,0,0,0,0;
+    //Adding Linear damping
+    if(base_link.has_lin_damping){
+        for(int i = 0; i<6; i++){
+            param_estimated[i] = base_link.lin_damping[i];
+        }
+    }
+    //Adding Quad damping
+    if(base_link.has_quad_damping){
+        for(int i = 0; i<6; i++){
+            param_estimated[6+i] = base_link.quad_damping[i];
+        }
+    }
+
+    //Adding inertia + added mass
+    for(int i = 0; i<6; i++){
+        param_estimated[12+i] = base_link.inertia(i,i);
+    }
+    if(base_link.has_added_mass)
+    {
+        for(int i = 0; i<6; i++){
+            param_estimated[12+i] = param_estimated[12+i] +  base_link.added_mass(i,i);
+        }
+    }
+    //W-B
+    param_estimated[18] = base_link.mass*9.81 - base_link.buoyancyForce(1.0)[2];
+    //-zb*B
+    param_estimated[19] = -base_link.cob[2]* base_link.buoyancyForce(1.0)[2];
+
 
 }
 
@@ -59,15 +94,13 @@ bool ModelControlCompute::UpdateError()
 {
     if(state_received)
     {
-        if(setpoint_velocity_ok)
+        if(setpoint_velocity_ok&&(!setpoint_position_ok))
         {
-            //std::stringstream ss2;ss2 << "Erreur en vitesse mis a jour";
             //Let's update the velocity_error_
             velocity_error_ = velocity_setpoint_ - velocity_measure_;
-            //ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), velocity_error_[0],velocity_error_[1],velocity_error_[2],velocity_error_[3],velocity_error_[4],velocity_error_[5]);
             pose_error_ << 0, 0, 0, 0, 0, 0;
         }
-        else if(setpoint_position_ok)
+        else if(setpoint_position_ok&&(!setpoint_velocity_ok))
         {
             velocity_error_ << 0, 0, 0, 0, 0, 0;
             //Let's update the pose_error_
@@ -77,9 +110,18 @@ bool ModelControlCompute::UpdateError()
             attitude_error_ = pose_ang_measure_.w()*pose_ang_setpoint_.vec() - pose_ang_setpoint_.w()*pose_ang_measure_.vec()
                     + pose_ang_setpoint_.vec().cross( pose_ang_measure_.vec() );
             pose_error_ << pose_ang_measure_inv_.toRotationMatrix() * (pose_lin_setpoint_ - pose_lin_measure_) , attitude_error_;
-        }else
+        }else //Depth control
         {
-            return false;
+            velocity_error_ = velocity_setpoint_ - velocity_measure_;
+
+            //Let's update the pose_error_
+            Eigen::Quaterniond pose_ang_measure_ = pose_ang_measure_inv_.inverse();
+            Eigen::Vector3d attitude_error_;
+
+            attitude_error_ = pose_ang_measure_.w()*pose_ang_setpoint_.vec() - pose_ang_setpoint_.w()*pose_ang_measure_.vec()
+                    + pose_ang_setpoint_.vec().cross( pose_ang_measure_.vec() );
+            pose_error_ << pose_ang_measure_inv_.toRotationMatrix() * (pose_lin_setpoint_ - pose_lin_measure_) , attitude_error_;
+            pose_error_[0] = pose_error_[1] = 0;//Bien aue la consigne soit 0, on ne veut pas qu²il aille au centre
         }
 
         //Let's update the s_error_
@@ -101,10 +143,6 @@ void ModelControlCompute::UpdateParam()
     Eigen::Matrix<double,20,6> rt =  regressor.transpose();
     param_estimated = param_prev + dt.toSec()*KL*regressor.transpose()*s_error_;//TODO inverser KL
     std::cout << "Parameters: \n" << param_estimated << std::endl;
-//    std::cout << "Parameters" << param_estimated(0)param_estimated(1),param_estimated(2),param_estimated(3),param_estimated(4),param_estimated(5),
-//                                                                 param_estimated(6),param_estimated(7),param_estimated(8),param_estimated(9),param_estimated(10),param_estimated(11),
-//                                                                 param_estimated(12),param_estimated(13),param_estimated(14),param_estimated(15),param_estimated(16),param_estimated(17),
-//                                                                 param_estimated(18),param_estimated(19),param_estimated(20),param_estimated(21));
 }
 
 void ModelControlCompute::UpdateWrench()
@@ -139,18 +177,10 @@ void ModelControlCompute::UpdateWrench()
 
     //Let's update the wrench
     Eigen::Vector6d wrench;
-    Eigen::Vector6d wrench_pid;
-    Eigen::Vector6d wrench_model;
 
-    wrench_pid =  KD*s_error_+ K * pose_error_;
-    wrench_model = regressor*param_estimated;
     wrench = KD*s_error_+ K * pose_error_ + regressor*param_estimated;
 
     tf::wrenchEigenToMsg(wrench,wrench_command_);
-    //std::stringstream ss2;
-    //ss2 << "Updating Wrench";
-    //ROS_INFO("%s; %f %f %f %f %f %f",ss2.str().c_str(), wrench[0],wrench[1],wrench[2],wrench[3],wrench[4],wrench[5]);
-
 
 }
 
@@ -180,7 +210,6 @@ void ModelControlCompute::GetGains(const ros::NodeHandle &control_node)
         KL_diag.push_back(k);
 
     }
-
     SetGainsK();
     SetGainsKD(KD_d1,KD_d2);
     SetGainsKL(KL_diag);

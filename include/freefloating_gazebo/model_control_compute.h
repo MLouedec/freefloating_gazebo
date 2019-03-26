@@ -11,6 +11,7 @@
 #include <eigen_conversions/eigen_msg.h>
 
 #include <freefloating_gazebo/BrovConfig.h>
+#include <freefloating_gazebo/thruster_allocator.h>
 
 namespace Eigen
 {
@@ -44,7 +45,7 @@ public:
 
     void Init(ros::NodeHandle &nh,
               ros::Duration&_dt,
-              const std::vector<std::string>&_controlled_axes,
+              const HydroLink base_link,
               std::string default_mode = "position");
 
     bool Update(free_floating_gazebo::BrovConfig &config, bool reconfig_update){
@@ -68,6 +69,8 @@ public:
     void UpdateWrench();
 
     void GetGains(const ros::NodeHandle &control_node);
+
+    void InitParam(HydroLink base_link);
 
     void SetGainsK()
     {
